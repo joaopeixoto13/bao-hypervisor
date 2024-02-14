@@ -39,6 +39,9 @@ void cpu_init(cpuid_t cpu_id, paddr_t load_addr)
 
     cpu_arch_init(cpu_id, load_addr);
 
+    // CHEGA AQUI!
+    //psci_cpu_on(0x80000000, 0x1, 0);
+
     list_init(&cpu()->interface->event_list);
 
     if (cpu_is_master()) {

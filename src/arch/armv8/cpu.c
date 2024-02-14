@@ -14,11 +14,19 @@ cpuid_t CPU_MASTER __attribute__((section(".data")));
 void cpu_arch_init(cpuid_t cpuid, paddr_t load_addr)
 {
     cpu()->arch.mpidr = sysreg_mpidr_el1_read();
+    //cpu_if(cpuid)->mpidr = cpu()->arch.mpidr;
     cpu_arch_profile_init(cpuid, load_addr);
 }
 
 unsigned long cpu_id_to_mpidr(cpuid_t id)
 {
+    /*
+        Não se pode utilizar esta função uma vez que durante a iniciliazação (cpu_arch_profile_init)
+        a variável cpu()->arch.mpidr só foi inicializada para o primeiro core (normalmente 0 - CPU_MASTER) 
+        e como é o CPU_MASTER que faz a chamada ao `psci_cpu_on` para acordar os outros cores,
+        então a variável cpu()->arch.mpidr dos outros cores vai estar a zero.
+    */
+    //return cpu_if(id)->mpidr;
     return platform_arch_cpuid_to_mpidr(&platform, id);
 }
 

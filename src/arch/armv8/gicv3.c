@@ -220,8 +220,37 @@ void gic_send_sgi(cpuid_t cpu_target, irqid_t sgi_num)
     if (sgi_num < GIC_MAX_SGIS) {
         unsigned long mpidr = cpu_id_to_mpidr(cpu_target) & MPIDR_AFF_MSK;
         /* We only support two affinity levels */
-        uint64_t sgi = (MPIDR_AFF_LVL(mpidr, 1) << ICC_SGIR_AFF1_OFFSET) |
-            (1UL << MPIDR_AFF_LVL(mpidr, 0)) | (sgi_num << ICC_SGIR_SGIINTID_OFF);
+        /*
+            TODO: https://developer.arm.com/documentation/ddi0601/2020-12/AArch64-Registers/ICC-SGI1R-EL1--Interrupt-Controller-Software-Generated-Interrupt-Group-1-Register
+
+            Para A53/A72 (antigos CPUs):
+            - cluster = MPIDR_AFF_LVL(mpidr, 1)
+            - cpu = MPIDR_AFF_LVL(mpidr, 0)
+            sgi = (cluster << 16) | (1UL << cpu) | (sgi_num << 24)
+
+            Para A78AE, provavelmente é:
+            1) Hipótese 1 (Mais provavel):
+            - cluster = MPIDR_AFF_LVL(mpidr, 2)
+            - cpu = MPIDR_AFF_LVL(mpidr, 1)
+            sgi = (cluster << 32) | (cpu << 16) | (sgi_num << 24)
+
+            // aff_lvl_mult = 2 (CPU_AFFINITY_LVLS = 3)
+            // aff_lvl_mult = 1 (CPU_AFFINITY_LVLS = 2)
+            size_t aff_lvl_mult = CPU_AFFINITY_LVLS - 1;
+            uint64_t sgi =  (MPIDR_AFF_LVL(mpidr, aff_lvl_mult) << (ICC_SGIR_AFF1_OFFSET * aff_lvl_mult)) |
+                            ((1UL << (MPIDR_AFF_LVL(mpidr, aff_lvl_mult - 1))) << (ICC_SGIR_AFF1_OFFSET * (aff_lvl_mult - 1))) | 
+                            (sgi_num << ICC_SGIR_SGIINTID_OFF);
+
+            2) Hipótese 2 (Menos provavel):
+            - cluster = MPIDR_AFF_LVL(mpidr, 2)
+            - cpu = MPIDR_AFF_LVL(mpidr, 1)
+            sgi = (cluster << 16) | (1UL << cpu) | (sgi_num << 24)
+        */
+        // uint64_t sgi = (MPIDR_AFF_LVL(mpidr, 1) << ICC_SGIR_AFF1_OFFSET) |
+        //     (1UL << MPIDR_AFF_LVL(mpidr, 0)) | (sgi_num << ICC_SGIR_SGIINTID_OFF);
+        uint64_t cluster = MPIDR_AFF_LVL(mpidr, 2);
+        uint64_t cpu = MPIDR_AFF_LVL(mpidr, 1);
+        uint64_t sgi = (cluster << 32) | ((1UL << cpu) << 16) | (sgi_num << 24);
         sysreg_icc_sgi1r_el1_write(sgi);
     }
 }

@@ -15,11 +15,13 @@
 
 void init(cpuid_t cpu_id, paddr_t load_addr)
 {
+    psci_cpu_on(0x80000000, cpu_id, 0);
     /**
      * These initializations must be executed first and in fixed order.
      */
 
     cpu_init(cpu_id, load_addr);
+    // NÃO CHEGA AQUI!
     mem_init(load_addr);
 
     /* -------------------------------------------------------------- */

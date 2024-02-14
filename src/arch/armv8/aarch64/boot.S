@@ -9,6 +9,18 @@
 #include <config_defs.h>
 #include <platform_defs.h>
 
+.macro print_cpuid n, nn
+	mov x21, x0
+	mov x22, x1
+	ldr x0, =0xc4000003
+	mrs x1, MPIDR_EL1
+	mov x2, \nn
+	mov x3, \n
+	smc #0
+	mov x0, x21
+	mov x1, x22
+.endm
+
 .data
 .align 3
 /**
@@ -48,6 +60,39 @@ _reset_handler:
 	mrs  x0, MPIDR_EL1
 	adrp x1, _image_start
 
+	mrs  x3, MPIDR_EL1
+	lsr x3, x3, #16
+	and x3, x3, 0xff
+
+	/* TESTAR HARDCODED MPIDR */
+	lsr x0, x0, #8
+	bl mpidr_to_cpu_id_harcoded
+
+	/* TESTAR MPIDR TABLE */
+	/* bl mpidr_to_cpu_id */
+
+	print_cpuid #1, 1
+
+/*
+	bl psci_cpu_on
+	mrs  x0, MPIDR_EL1
+	adrp x1, _image_start
+	mrs  x3, MPIDR_EL1
+	lsr x3, x3, #16
+	and x3, x3, 0xff
+	bl mpidr_to_cpu_id
+*/
+
+	/* TESTAR APENAS PSCI_ON */
+/*
+	bl psci_cpu_on
+	mrs  x0, MPIDR_EL1
+	adrp x1, _image_start
+	mrs  x3, MPIDR_EL1
+	lsr x3, x3, #16
+	and x3, x3, 0xff
+*/
+
 	/*
 	 * Install vector table physical address early, in case exception occurs during this
 	 * initialization.
@@ -62,7 +107,16 @@ _reset_handler:
 	 * this early in the initialization.
 	 */
 
+	mrs  x3, MPIDR_EL1
+	lsr x3, x3, #16
+	/*
+#if defined(CPU_AFFINITY_LVLS)
+	mov x3, x0, lsr (CPU_AFFINITY_LVLS-1)*8
+#else
 	mov x3, x0, lsr #8
+#endif
+*/
+	/*and x3, x3, #0xff*/
 	and x3, x3, 0xff
 	adr x4, platform
 	ldr x4, [x4, PLAT_ARCH_OFF+PLAT_ARCH_CLUSTERS_OFF+PLAT_CLUSTERS_CORES_NUM_OFF]
@@ -85,6 +139,8 @@ _reset_handler:
 2:
 	and x0, x0, #0xff
 	add x0, x0, x7
+
+	print_cpuid 2, 1
 
 /* Setting x9 should if set !is_cpu_master */
 #if defined(CPU_MASTER_FIXED)
@@ -138,7 +194,11 @@ _set_master_cpu:
 
 	ic iallu
 
+	print_cpuid 3, 1
+
 	bl boot_arch_profile_init
+
+	print_cpuid 4, 1
 
 	mov x3, xzr
 	msr CPTR_EL2, x3
@@ -151,6 +211,7 @@ _set_master_cpu:
 	add x3, x3, x4
 	mov SP, x3
 
+	print_cpuid 7, x3
 
 	/* If this is bsp (cpu 0) boot_clear bss */
 	cbnz x9, 1f
@@ -171,6 +232,10 @@ _set_master_cpu:
 	b.lt 2b
 
 	isb
+
+	str x1, [SP]
+
+	print_cpuid 8, x5
 
 	b init
 
@@ -227,3 +292,88 @@ set_loop:
 .endfunc
 
 
+.global mpidr_to_cpu_id_harcoded
+.func mpidr_to_cpu_id_harcoded
+mpidr_to_cpu_id_harcoded:
+	cmp x3, #0x1
+	beq set_cpu_cluster
+	and x0, x0, #0xff
+	ret
+
+set_cpu_cluster:
+	and x4, x0, #0xff
+	cmp x4, #0x2
+	beq set_cpu_cluster_a
+	cmp x4, #0x3
+	beq set_cpu_cluster_b
+	ret
+	
+set_cpu_cluster_a:
+    mov x0, #0x0
+	ret
+
+set_cpu_cluster_b:
+    mov x0, #0x1
+	ret
+.endfunc
+
+/*
+ * x0 - MPIDR_EL1 and returns cpu id (linearized)
+ * x1 - image base load address
+ * x3 - cluster
+ * x4 - platform->mpidr_table address (iterator)
+ * x5 - platform->mpidr_table (start address)
+ * x7 - cpu_num
+
+ Note: This code assumes the size of each mpidr_table entry is 8 bytes (unsigned long).
+*/
+.global mpidr_to_cpu_id
+.func mpidr_to_cpu_id
+mpidr_to_cpu_id:
+	ldr x5, =BAO_VAS_BASE
+
+	adr x7, platform
+	ldr x4, [x7, PLAT_ARCH_OFF+PLAT_ARCH_MPIDR_TABLE_OFF+PLAT_MPIDR_TABLE_OFF]
+	sub x4, x4, x5
+	add x4, x4, x1	// x4 = platform->mpidr_table address
+	mov x5, x4	// x5 = start address of the table
+
+	ldr x7, [x7, PLAT_CPUNUM_OFF]
+
+mpidr_to_cpu_id_loop:
+	ldr w6, [x4]	// x6 = *mpidr_table[i]
+
+	cmp x6, x0
+	b.eq mpidr_to_cpu_id_found
+	add x4, x4, #8
+
+	subs x7, x7, #1	// x7 = cpu_num - 1
+	b.ne mpidr_to_cpu_id_loop
+	mov x0, #0xff	// TODO: error case
+	ret
+
+mpidr_to_cpu_id_found:
+	sub x4, x4, x5	// x4 = &mpidr_table[i] - start address of the table
+	lsr x0, x4, #3	// x0 = (&mpidr_table[i] - start address of the table) / 8 ==> index (or CPU ID)
+	adr x4, platform
+	ldr x4, [x4, PLAT_ARCH_OFF+PLAT_ARCH_CLUSTERS_OFF+PLAT_CLUSTERS_CORES_NUM_OFF]
+	ldr x5, =BAO_VAS_BASE
+	sub x4, x4, x5
+	add x4, x4, x1
+	mov x5, xzr
+	mov x7, xzr
+1:
+	cmp x5, x3
+	b.ge	2f
+#if PLAT_CLUSTERS_CORES_NUM_SIZE != 8
+#error "struct platform cluster core_num field type size is not 8"
+#endif
+	ldr w6, [x4]
+	add x4, x4, #PLAT_CLUSTERS_CORES_NUM_SIZE
+	add x5, x5, #1
+	add x7, x7, x6
+	b 	1b
+2:
+	sub x0, x0, x7
+	ret
+.endfunc

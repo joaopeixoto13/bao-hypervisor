@@ -38,6 +38,13 @@ struct arch_platform {
         size_t num;
         size_t* core_num;
     } clusters;
+
+    struct mpidr_table {
+        unsigned long* table;
+    //    size_t affinity_lvls;
+    } mpidr_table;
+
+    size_t affinity_lvls;
 };
 
 struct platform;

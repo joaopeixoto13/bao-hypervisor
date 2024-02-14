@@ -11,6 +11,18 @@
 
 #define PT_LVLS 4
 
+.macro print_cpuid n, nn
+	mov x21, x0
+	mov x22, x1
+	ldr x0, =0xc4000003
+	mrs x1, MPIDR_EL1
+	mov x2, \nn
+	mov x3, \n
+	smc #0
+	mov x0, x21
+	mov x1, x22
+.endm
+
 .section ".boot", "ax"
 .global boot_arch_profile_init
 boot_arch_profile_init:
@@ -217,11 +229,13 @@ setup_cpu:
 
 _enter_vas:
 
+	print_cpuid #5, #1
 	/* Install vector table virtual address*/
 	ldr	x3, =_hyp_vector_table
 	msr	VBAR_EL2, x3
 
 	/* Remove temporary mapping - the L1 page holding it leaks */
+	/*
 	ldr x4, =BAO_CPU_BASE
 	add x4, x4, #CPU_SIZE
 	PTE_INDEX_ASM x5, x1, 0 
@@ -230,10 +244,11 @@ _enter_vas:
     tlbi	alle2
 	dsb	nsh
 	isb
-
+*/
     sub x20, x20, x1
     ldr x3, =_image_start
     add x30, x20, x3
+	print_cpuid #6, x30
     ret
 
 .global psci_boot_entry

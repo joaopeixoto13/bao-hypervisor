@@ -29,7 +29,7 @@
 #define MPIDR_RES0_MSK            ~(0x1ful << 25)
 #define MPIDR_AFFINITY_BITS       (8)
 #define MPIDR_U_BIT               (1UL << 30)
-#define MPIDR_AFF_MSK             (0xffff) // we are only supporting 2 affinity levels
+#define MPIDR_AFF_MSK             (0xffffff) // we are only supporting 3 affinity levels
 #define MPIDR_AFF_LVL(MPIDR, LVL) (((MPIDR) >> (8 * (LVL))) & 0xff)
 
 /* SPSR - Saved Program Status Register */

@@ -24,6 +24,12 @@ void cpu_arch_profile_init(cpuid_t cpuid, paddr_t load_addr)
                 ERROR("cant wake up cpu %d", cpu_core_id);
             }
         }
+
+        // psci_cpu_on(0x81000100, load_addr, 0);
+        // psci_cpu_on(0x81000200, load_addr, 0);
+        // psci_cpu_on(0x81000300, load_addr, 0);
+        // psci_cpu_on(0x81010200, load_addr, 0);
+        // psci_cpu_on(0x81010300, load_addr, 0);
     }
 }
 
