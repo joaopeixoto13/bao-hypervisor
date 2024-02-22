@@ -9,7 +9,7 @@
 
 struct platform platform = {
     //.cpu_num = 6,
-    .cpu_num = 2,
+    .cpu_num = 1,
     //.cpu_num = 5,
     .region_num = 1,
     .regions =  (struct mem_region[]) {
@@ -20,7 +20,8 @@ struct platform platform = {
     },
 
     .console = {
-        .base = 0x03100000,        // TRM page 68
+        //.base = 0x03100000,        // TRM page 68
+        .base = 0x0C198000,
     },
 
     .arch = {
@@ -35,14 +36,14 @@ struct platform platform = {
             //.num = 2,
             //.core_num = (size_t[]){ 4, 2 },
             .num = 1,
-            .core_num = (size_t[]){ 2 },
+            .core_num = (size_t[]){ 1 },
         },
 
         .mpidr_table = {
             .table = (unsigned long []) {
                 0x81000000,
-                0x81000100,
                 /*
+                0x81000100,
                 0x81000200,
                 0x81000300,
                 0x81010200,

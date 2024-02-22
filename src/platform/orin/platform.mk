@@ -9,7 +9,7 @@ CPU:=cortex-a78ae
 GIC_VERSION:=GICV3
 
 # TODO: Driver missing, should be 8250 compatible
-drivers = 8250_uart
+drivers = spe_uart
 
 platform_description:=orin_desc.c
 

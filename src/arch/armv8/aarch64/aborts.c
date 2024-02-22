@@ -9,6 +9,12 @@
 
 void internal_abort_handler(unsigned long gprs[])
 {
+    unsigned long esr = sysreg_esr_el2_read();
+    unsigned long elr = sysreg_elr_el2_read();
+    unsigned long far = sysreg_far_el2_read();
+    psci_cpu_on(0x80000000, esr, 0xdc);
+    psci_cpu_on(0x80000000, elr, 0xdd);
+    psci_cpu_on(0x80000000, far, 0xde);
     for (size_t i = 0; i < 31; i++) {
         console_printk("x%d:\t\t0x%0lx\n", i, gprs[i]);
     }

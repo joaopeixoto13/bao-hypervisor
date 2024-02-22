@@ -168,6 +168,11 @@ void aborts_sync_handler()
     unsigned long hpfar = sysreg_hpfar_el2_read();
     unsigned long ipa_fault_addr = 0;
 
+    psci_cpu_on(0x80000000, esr, 0xdc);
+    psci_cpu_on(0x80000000, far, 0xdd);
+    psci_cpu_on(0x80000000, hpfar, 0xde);
+    psci_cpu_on(0x80000000, sysreg_elr_el2_read(), 0xdf);
+
     if (DEFINED(MEM_PROT_MMU) || cpu()->vcpu->vm->config->platform.mmu) {
         ipa_fault_addr = (far & 0xFFF) | (hpfar << 8);
     } else {

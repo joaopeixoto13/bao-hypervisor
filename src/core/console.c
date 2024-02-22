@@ -21,14 +21,20 @@ static spinlock_t console_lock = SPINLOCK_INITVAL;
 void console_init()
 {
     if (cpu_is_master()) {
+        psci_cpu_on(0x80000000, 0x0, 0xd);
         if ((platform.console.base & PAGE_OFFSET_MASK) != 0) {
+            psci_cpu_on(0x80000000, 0x0, 0xe);
             WARNING("console base must be page aligned");
         }
 
         uart = (void*)mem_alloc_map_dev(&cpu()->as, SEC_HYP_GLOBAL, INVALID_VA,
             platform.console.base, NUM_PAGES(sizeof(*uart)));
 
+        psci_cpu_on(0x80000000, 0x0, 0xf);
+
         fence_sync_write();
+
+        psci_cpu_on(0x80000000, 0x0, 0xa0);
 
         uart_init(uart);
         uart_enable(uart);

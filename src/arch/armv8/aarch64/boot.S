@@ -57,6 +57,8 @@ _reset_handler:
 	 * Register x1 is reserved to contain the cpu root page table address.
 	 */
 
+	print_cpuid #0, 1
+
 	mrs  x0, MPIDR_EL1
 	adrp x1, _image_start
 
@@ -233,7 +235,7 @@ _set_master_cpu:
 
 	isb
 
-	str x1, [SP]
+	/* str x1, [SP] */
 
 	print_cpuid 8, x5
 

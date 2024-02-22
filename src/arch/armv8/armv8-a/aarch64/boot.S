@@ -235,7 +235,6 @@ _enter_vas:
 	msr	VBAR_EL2, x3
 
 	/* Remove temporary mapping - the L1 page holding it leaks */
-	/*
 	ldr x4, =BAO_CPU_BASE
 	add x4, x4, #CPU_SIZE
 	PTE_INDEX_ASM x5, x1, 0 
@@ -244,7 +243,7 @@ _enter_vas:
     tlbi	alle2
 	dsb	nsh
 	isb
-*/
+
     sub x20, x20, x1
     ldr x3, =_image_start
     add x30, x20, x3
