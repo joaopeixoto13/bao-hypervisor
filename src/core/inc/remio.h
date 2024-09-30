@@ -8,8 +8,8 @@
  * @brief This header file contains the Remote I/O device interface
  */
 
-#ifndef __REMIO_H__
-#define __REMIO_H__
+#ifndef REMIO_H
+#define REMIO_H
 
 #include <bao.h>
 #include <emul.h>
