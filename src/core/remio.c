@@ -8,8 +8,6 @@
  * @brief This source file contains the Remote I/O implementation
  */
 
-#include "inc/bao.h"
-#include "inc/types.h"
 #include <remio.h>
 #include <cpu.h>
 #include <vm.h>
@@ -17,7 +15,6 @@
 #include <objpool.h>
 #include <config.h>
 #include <spinlock.h>
-#include <util.h>
 
 #define REMIO_MAX_DEVICES          32
 #define REMIO_DEVICE_UNINITIALIZED -1

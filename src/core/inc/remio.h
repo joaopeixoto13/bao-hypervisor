@@ -11,7 +11,6 @@
 #ifndef __REMIO_H__
 #define __REMIO_H__
 
-#include "types.h"
 #include <bao.h>
 #include <emul.h>
 #include <list.h>
