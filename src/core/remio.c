@@ -151,26 +151,23 @@ OBJPOOL_ALLOC(remio_request_event_pool, struct remio_request_event,
 /**
  * @brief Creates a new Remote I/O request based on the MMIO access information
  * @param acc Pointer to the emul_access structure containing the MMIO access information
- * @return Returns the Remote I/O request
+ * @param request Pointer to the Remote I/O request
  */
-static struct remio_request remio_create_request(struct emul_access* acc)
+static void remio_create_request(struct emul_access* acc, struct remio_request* request)
 {
-    struct remio_request request;
-    request.addr = acc->addr;
-    request.reg = acc->reg;
-    request.access_width = acc->width;
-    request.state = REMIO_STATE_PENDING;
+    request->addr = acc->addr;
+    request->reg = acc->reg;
+    request->access_width = acc->width;
+    request->state = REMIO_STATE_PENDING;
 
     if (acc->write) {
         long unsigned int value = vcpu_readreg(cpu()->vcpu, acc->reg);
-        request.op = REMIO_HYP_WRITE;
-        request.value = value;
+        request->op = REMIO_HYP_WRITE;
+        request->value = value;
     } else {
-        request.op = REMIO_HYP_READ;
-        request.value = 0;
+        request->op = REMIO_HYP_READ;
+        request->value = 0;
     }
-
-    return request;
 }
 
 /**
@@ -659,6 +656,7 @@ long int remio_hypercall(unsigned long arg0, unsigned long arg1, unsigned long a
 bool remio_mmio_emul_handler(struct emul_access* acc)
 {
     struct remio_device* device = NULL;
+    struct remio_request request = { 0 };
 
     /** Find the Remote I/O device based on the MMIO access address */
     device = remio_find_vm_dev_by_addr(cpu()->vcpu->vm, acc->addr);
@@ -667,7 +665,7 @@ bool remio_mmio_emul_handler(struct emul_access* acc)
     }
 
     /** Create a new Remote I/O request based on the MMIO access information */
-    struct remio_request request = remio_create_request(acc);
+    remio_create_request(acc, &request);
 
     /** Create a new Remote I/O request event */
     struct remio_request_event* event = remio_create_event();
