@@ -179,7 +179,7 @@ static struct remio_request remio_create_request(struct emul_access* acc)
  * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
  * @return Returns the Remote I/O request
  */
-static struct remio_request* remio_get_request(unsigned long cpu_id, unsigned long vcpu_id)
+static inline struct remio_request* remio_get_request(unsigned long cpu_id, unsigned long vcpu_id)
 {
     return &remio_requests[cpu_id][vcpu_id];
 }
@@ -190,7 +190,7 @@ static struct remio_request* remio_get_request(unsigned long cpu_id, unsigned lo
  * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
  * @param request Pointer to the Remote I/O request
  */
-static void remio_insert_request(unsigned long cpu_id, unsigned long vcpu_id,
+static inline void remio_insert_request(unsigned long cpu_id, unsigned long vcpu_id,
     struct remio_request* request)
 {
     remio_requests[cpu_id][vcpu_id] = *request;
@@ -202,7 +202,7 @@ static void remio_insert_request(unsigned long cpu_id, unsigned long vcpu_id,
  * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
  * @param state New state of the I/O request
  */
-static void remio_set_request_state(unsigned long cpu_id, unsigned long vcpu_id,
+static inline void remio_set_request_state(unsigned long cpu_id, unsigned long vcpu_id,
     enum REMIO_STATE state)
 {
     struct remio_request* request = remio_get_request(cpu_id, vcpu_id);
@@ -215,7 +215,7 @@ static void remio_set_request_state(unsigned long cpu_id, unsigned long vcpu_id,
  * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
  * @return Returns the state of the I/O request
  */
-static enum REMIO_STATE remio_get_request_state(unsigned long cpu_id, unsigned long vcpu_id)
+static inline enum REMIO_STATE remio_get_request_state(unsigned long cpu_id, unsigned long vcpu_id)
 {
     struct remio_request* request = remio_get_request(cpu_id, vcpu_id);
     return request->state;
@@ -227,7 +227,8 @@ static enum REMIO_STATE remio_get_request_state(unsigned long cpu_id, unsigned l
  * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
  * @param value New value of the I/O request
  */
-static void remio_set_request_value(unsigned long cpu_id, unsigned long vcpu_id, unsigned long value)
+static inline void remio_set_request_value(unsigned long cpu_id, unsigned long vcpu_id,
+    unsigned long value)
 {
     struct remio_request* request = remio_get_request(cpu_id, vcpu_id);
     request->value = value;
@@ -256,7 +257,8 @@ static struct remio_request_event* remio_create_event(void)
  * @param device Pointer to the Remote I/O device
  * @param event Pointer to the Remote I/O request event
  */
-static void remio_push_request_event(struct remio_device* device, struct remio_request_event* event)
+static inline void remio_push_request_event(struct remio_device* device,
+    struct remio_request_event* event)
 {
     list_push(&device->request_event_list, (node_t*)event);
 }
@@ -266,7 +268,7 @@ static void remio_push_request_event(struct remio_device* device, struct remio_r
  * @param device Pointer to the Remote I/O device
  * @return Returns the next pending I/O request event or NULL if there is no pending I/O request
  */
-static struct remio_request_event* remio_pop_request_event(struct remio_device* device)
+static inline struct remio_request_event* remio_pop_request_event(struct remio_device* device)
 {
     struct remio_request_event* event =
         (struct remio_request_event*)list_pop(&device->request_event_list);
@@ -278,7 +280,7 @@ static struct remio_request_event* remio_pop_request_event(struct remio_device* 
  * @param device Pointer to the Remote I/O device
  * @return Returns the number of pending I/O requests
  */
-static size_t remio_get_request_event_count(struct remio_device* device)
+static inline size_t remio_get_request_event_count(struct remio_device* device)
 {
     return list_size(&device->request_event_list);
 }
