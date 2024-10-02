@@ -11,7 +11,7 @@
 #include <shmem.h>
 #include <objpool.h>
 
-OBJPOOL_ALLOC(emul_cache, struct emul_mem, sizeof(struct emul_mem));
+OBJPOOL_ALLOC(emul_cache, struct emul_mem, CONFIG_REMIO_DEV_NUM);
 
 static void vm_master_init(struct vm* vm, const struct vm_config* vm_config, vmid_t vm_id)
 {
