@@ -18,7 +18,6 @@
 
 #define REMIO_MAX_DEVICES          32
 #define REMIO_DEVICE_UNINITIALIZED -1
-#define REMIO_CPU_NUM              PLAT_CPU_NUM
 #define REMIO_VCPU_NUM             PLAT_CPU_NUM
 #define REMIO_NUM_DEV_TYPES        (REMIO_DEV_BACKEND - REMIO_DEV_FRONTEND + 1)
 
@@ -63,12 +62,11 @@ enum REMIO_STATE {
  */
 union remio_cpu_msg_data {
     struct {
-        uint8_t id;        /**< Remote I/O ID */
-        uint8_t cpu_id;    /**< Frontend CPU ID */
-        uint8_t vcpu_id;   /**< Frontend vCPU ID */
-        uint8_t interrupt; /**< Interrupt ID */
+        uint8_t remio_id;   /**< Remote I/O ID */
+        uint8_t request_id; /**< Remote I/O request ID */
+        uint8_t interrupt;  /**< Interrupt ID */
     };
-    uint64_t raw;          /**< Raw data */
+    uint64_t raw;           /**< Raw data */
 };
 
 /**
@@ -81,6 +79,7 @@ struct remio_request {
     unsigned long op;           /**< MMIO operation type (read or write) */
     unsigned long value;        /**< Value to be written or read */
     unsigned long reg;          /**< vCPU resgiter used during the MMIO access */
+    cpuid_t cpu_id;             /**< CPU ID of the frontend VM that performed the MMIO access */
     enum REMIO_STATE state;     /**< I/O request state */
 };
 
@@ -92,9 +91,8 @@ struct remio_request {
  *        CPUs and vCPUs slots to find the next I/O request to be processed
  */
 struct remio_request_event {
-    node_t node;      /** Node */
-    cpuid_t cpu_id;   /** CPU ID of the frontend VM that issued the I/O request */
-    vcpuid_t vcpu_id; /** vCPU ID of the frontend VM that issued the I/O request */
+    node_t node;     /** Node */
+    objpool_id_t id; /** ID */
 };
 
 /**
@@ -119,17 +117,15 @@ struct remio_device_config {
  * @brief This structure comprises all the information needed about a Remote I/O device
  */
 struct remio_device {
-    node_t node;                       /**< Node */
-    remio_id_t id;                     /**< Remote I/O device ID */
-    struct remio_device_config config; /**< Remote I/O device configuration */
-    struct list request_event_list;    /**< List of pending I/O requests events */
+    node_t node;                                   /**< Node */
+    remio_id_t id;                                 /**< Remote I/O device ID */
+    struct remio_device_config config;             /**< Remote I/O device configuration */
+    struct list request_event_list;                /**< List of pending I/O requests events */
+    struct remio_request requests[REMIO_VCPU_NUM]; /**< Array of Remote I/O requests */
 };
 
 /** List of Remote I/O devices */
 struct list remio_device_list;
-
-/** Array of Remote I/O requests */
-struct remio_request remio_requests[REMIO_CPU_NUM][REMIO_VCPU_NUM];
 
 /**
  * @brief Remote I/O CPU message handler
@@ -158,6 +154,7 @@ static void remio_create_request(struct emul_access* acc, struct remio_request* 
     request->reg = acc->reg;
     request->access_width = acc->width;
     request->state = REMIO_STATE_PENDING;
+    request->cpu_id = cpu()->id;
 
     if (acc->write) {
         long unsigned int value = vcpu_readreg(cpu()->vcpu, acc->reg);
@@ -171,62 +168,62 @@ static void remio_create_request(struct emul_access* acc, struct remio_request* 
 
 /**
  * @brief Gets the Remote I/O request indexed by the CPU ID and vCPU ID
- * @param cpu_id CPU ID of the frontend VM that issued the I/O request
- * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
+ * @param device Pointer to the Remote I/O device
+ * @param id Remote I/O request ID
  * @return Returns the Remote I/O request
  */
-static inline struct remio_request* remio_get_request(unsigned long cpu_id, unsigned long vcpu_id)
+static inline struct remio_request* remio_get_request(struct remio_device* device, unsigned long id)
 {
-    return &remio_requests[cpu_id][vcpu_id];
+    return &device->requests[id];
 }
 
 /**
  * @brief Inserts a new Remote I/O request
- * @param cpu_id CPU ID of the frontend VM that issued the I/O request
- * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
+ * @param device Pointer to the Remote I/O device
+ * @param id Remote I/O request ID
  * @param request Pointer to the Remote I/O request
  */
-static inline void remio_insert_request(unsigned long cpu_id, unsigned long vcpu_id,
+static inline void remio_insert_request(struct remio_device* device, unsigned long id,
     struct remio_request* request)
 {
-    remio_requests[cpu_id][vcpu_id] = *request;
+    device->requests[id] = *request;
 }
 
 /**
  * @brief Sets the state of a Remote I/O request
- * @param cpu_id CPU ID of the frontend VM that issued the I/O request
- * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
+ * @param device Pointer to the Remote I/O device
+ * @param id Remote I/O request ID
  * @param state New state of the I/O request
  */
-static inline void remio_set_request_state(unsigned long cpu_id, unsigned long vcpu_id,
+static inline void remio_set_request_state(struct remio_device* device, unsigned long id,
     enum REMIO_STATE state)
 {
-    struct remio_request* request = remio_get_request(cpu_id, vcpu_id);
+    struct remio_request* request = remio_get_request(device, id);
     request->state = state;
 }
 
 /**
  * @brief Gets the state of a Remote I/O request
- * @param cpu_id CPU ID of the frontend VM that issued the I/O request
- * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
+ * @param device Pointer to the Remote I/O device
+ * @param id Remote I/O request ID
  * @return Returns the state of the I/O request
  */
-static inline enum REMIO_STATE remio_get_request_state(unsigned long cpu_id, unsigned long vcpu_id)
+static inline enum REMIO_STATE remio_get_request_state(struct remio_device* device, unsigned long id)
 {
-    struct remio_request* request = remio_get_request(cpu_id, vcpu_id);
+    struct remio_request* request = remio_get_request(device, id);
     return request->state;
 }
 
 /**
  * @brief Sets the value of a Remote I/O request
- * @param cpu_id CPU ID of the frontend VM that issued the I/O request
- * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
+ * @param device Pointer to the Remote I/O device
+ * @param id Remote I/O request ID
  * @param value New value of the I/O request
  */
-static inline void remio_set_request_value(unsigned long cpu_id, unsigned long vcpu_id,
+static inline void remio_set_request_value(struct remio_device* device, unsigned long id,
     unsigned long value)
 {
-    struct remio_request* request = remio_get_request(cpu_id, vcpu_id);
+    struct remio_request* request = remio_get_request(device, id);
     request->value = value;
 }
 
@@ -236,14 +233,14 @@ static inline void remio_set_request_value(unsigned long cpu_id, unsigned long v
  */
 static struct remio_request_event* remio_create_event(void)
 {
-    struct remio_request_event* event = objpool_alloc(&remio_request_event_pool);
+    objpool_id_t id;
+    struct remio_request_event* event = objpool_alloc_with_id(&remio_request_event_pool, &id);
     if (event == NULL) {
         return NULL;
     }
 
-    /** Fill the I/O request event information */
-    event->cpu_id = cpu()->id;
-    event->vcpu_id = cpu()->vcpu->id;
+    /** Fill the I/O request event ID */
+    event->id = id;
 
     return event;
 }
@@ -367,18 +364,16 @@ static struct remio_device* remio_find_vm_dev_by_addr(struct vm* vm, unsigned lo
  * @brief Sends a Remote I/O CPU message to the target CPU
  * @param event Message event (REMIO_CPU_MSG_*)
  * @param target_cpu Target CPU ID
- * @param id Remote I/O device ID
- * @param cpu_id CPU ID of the frontend VM that issued the I/O request
- * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
+ * @param remio_id Remote I/O device ID
+ * @param request_id Remote I/O request ID
  * @param interrupt Interrupt ID
  */
 static void remio_cpu_send_msg(enum REMIO_CPU_MSG_EVENT event, unsigned long target_cpu,
-    unsigned long id, unsigned long cpu_id, unsigned long long vcpu_id, unsigned long interrupt)
+    unsigned long remio_id, unsigned long request_id, unsigned long interrupt)
 {
     union remio_cpu_msg_data data = {
-        .id = (uint8_t)id,
-        .cpu_id = (uint8_t)cpu_id,
-        .vcpu_id = (uint8_t)vcpu_id,
+        .remio_id = (uint8_t)remio_id,
+        .request_id = (uint8_t)request_id,
         .interrupt = (uint8_t)interrupt,
     };
     struct cpu_msg msg = { (uint32_t)REMIO_CPUMSG_ID, event, data.raw };
@@ -481,9 +476,9 @@ void remio_init(void)
     }
 
     /** Initialize the Remote I/O requests array */
-    for (size_t cpu_idx = 0; cpu_idx < REMIO_CPU_NUM; cpu_idx++) {
-        for (size_t vcpu_idx = 0; vcpu_idx < REMIO_VCPU_NUM; vcpu_idx++) {
-            remio_set_request_state(cpu_idx, vcpu_idx, REMIO_STATE_FREE);
+    list_foreach (remio_device_list, struct remio_device, dev) {
+        for (size_t i = 0; i < REMIO_VCPU_NUM; i++) {
+            dev->requests[i].state = REMIO_STATE_FREE;
         }
     }
 }
@@ -521,27 +516,23 @@ static long int remio_handle_ask(unsigned long addr, unsigned long value,
         return ret;
     }
 
-    if (remio_get_request_state(event->cpu_id, event->vcpu_id) != REMIO_STATE_PENDING) {
-        objpool_free(&remio_request_event_pool, event);
+    if (remio_get_request_state(device, event->id) != REMIO_STATE_PENDING) {
         return ret;
     }
 
     /** Calculate the remaining number of pending I/O requests */
     ret = (long int)remio_get_request_event_count(device);
 
-    remio_set_request_state(event->cpu_id, event->vcpu_id, REMIO_STATE_PROCESSING);
+    remio_set_request_state(device, event->id, REMIO_STATE_PROCESSING);
 
-    struct remio_request* request = remio_get_request(event->cpu_id, event->vcpu_id);
+    struct remio_request* request = remio_get_request(device, event->id);
 
     /** Write the I/O request information to the backend VM's vCPU registers */
     vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(0), request->addr);
     vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(1), request->op);
     vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(2), request->value);
     vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(3), request->access_width);
-    vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(4), event->cpu_id);
-    vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(5), event->vcpu_id);
-
-    objpool_free(&remio_request_event_pool, event);
+    vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(4), event->id);
 
     return ret;
 }
@@ -549,17 +540,18 @@ static long int remio_handle_ask(unsigned long addr, unsigned long value,
 /**
  * @brief Handles the Remote I/O read and write operations
  * @param value Value to be written or read
- * @param cpu_id CPU ID of the frontend VM that issued the I/O request
- * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
+ * @param request_id Remote I/O request ID
+ * @param device Pointer to the Remote I/O device
  * @return Returns true if the operation was successful, false otherwise
  */
-static bool remio_handle_rw(unsigned long value, unsigned long cpu_id, unsigned long vcpu_id)
+static bool remio_handle_rw(unsigned long value, unsigned long request_id,
+    struct remio_device* device)
 {
-    if (remio_get_request_state(cpu_id, vcpu_id) != REMIO_STATE_PROCESSING) {
+    if (remio_get_request_state(device, request_id) != REMIO_STATE_PROCESSING) {
         return false;
     }
-    remio_set_request_value(cpu_id, vcpu_id, value);
-    remio_set_request_state(cpu_id, vcpu_id, REMIO_STATE_COMPLETE);
+    remio_set_request_value(device, request_id, value);
+    remio_set_request_state(device, request_id, REMIO_STATE_COMPLETE);
     return true;
 }
 
@@ -568,16 +560,18 @@ static bool remio_handle_rw(unsigned long value, unsigned long cpu_id, unsigned 
  * @note This function is executed by the frontend VM and is responsible for updating the
  *       vCPU register in case of a read operation and activating the frontend vCPU
  * @param event Message event (REMIO_CPU_MSG_*)
- * @param cpu_id CPU ID of the frontend VM that issued the I/O request
- * @param vcpu_id vCPU ID of the frontend VM that issued the I/O request
+ * @param remio_id Remote I/O device ID
+ * @param request_id Remote I/O request ID
  * @return Returns true if the operation was successful, false otherwise
  */
-static bool remio_cpu_post_work(uint32_t event, uint8_t cpu_id, uint8_t vcpu_id)
+static bool remio_cpu_post_work(uint32_t event, uint8_t remio_id, uint8_t request_id)
 {
-    if (remio_get_request_state(cpu_id, vcpu_id) != REMIO_STATE_COMPLETE) {
+    struct remio_device* device = remio_find_dev_by_id(remio_id);
+
+    if (remio_get_request_state(device, request_id) != REMIO_STATE_COMPLETE) {
         return false;
     }
-    struct remio_request* request = remio_get_request(cpu_id, vcpu_id);
+    struct remio_request* request = remio_get_request(device, request_id);
 
     switch (event) {
         case REMIO_CPU_MSG_READ:
@@ -587,7 +581,13 @@ static bool remio_cpu_post_work(uint32_t event, uint8_t cpu_id, uint8_t vcpu_id)
             break;
     }
 
-    remio_set_request_state(cpu_id, vcpu_id, REMIO_STATE_FREE);
+    remio_set_request_state(device, request_id, REMIO_STATE_FREE);
+
+    struct remio_request_event* request_event =
+        objpool_get_by_id(&remio_request_event_pool, request_id);
+    if (request_event != NULL) {
+        objpool_free(&remio_request_event_pool, request_event);
+    }
 
     cpu()->vcpu->active = true;
 
@@ -601,8 +601,7 @@ long int remio_hypercall(unsigned long arg0, unsigned long arg1, unsigned long a
     unsigned long addr = arg1;
     unsigned long op = arg2;
     unsigned long value = vcpu_readreg(cpu()->vcpu, HYPCALL_IN_ARG_REG(3));
-    unsigned long cpu_id = vcpu_readreg(cpu()->vcpu, HYPCALL_IN_ARG_REG(4));
-    unsigned long vcpu_id = vcpu_readreg(cpu()->vcpu, HYPCALL_IN_ARG_REG(5));
+    unsigned long request_id = vcpu_readreg(cpu()->vcpu, HYPCALL_IN_ARG_REG(4));
     struct remio_device* device = NULL;
     struct vm* vm = cpu()->vcpu->vm;
 
@@ -628,12 +627,12 @@ long int remio_hypercall(unsigned long arg0, unsigned long arg1, unsigned long a
     switch (op) {
         case REMIO_HYP_WRITE:
         case REMIO_HYP_READ:
-            if (!remio_handle_rw(value, cpu_id, vcpu_id)) {
+            if (!remio_handle_rw(value, request_id, device)) {
                 ret = -HC_E_FAILURE;
             } else {
                 /** Send a CPU message to the backend VM to execute the post work */
                 remio_cpu_send_msg(op == REMIO_HYP_WRITE ? REMIO_CPU_MSG_WRITE : REMIO_CPU_MSG_READ,
-                    cpu_id, remio_dev_id, cpu_id, vcpu_id, 0);
+                    device->requests[request_id].cpu_id, remio_dev_id, request_id, 0);
             }
             break;
         case REMIO_HYP_ASK:
@@ -641,7 +640,7 @@ long int remio_hypercall(unsigned long arg0, unsigned long arg1, unsigned long a
             break;
         case REMIO_HYP_NOTIFY:
             /** Send a CPU message to the frontend VM to inject an interrupt */
-            remio_cpu_send_msg(REMIO_CPU_MSG_NOTIFY, device->config.frontend.cpu_id, 0, 0, 0,
+            remio_cpu_send_msg(REMIO_CPU_MSG_NOTIFY, device->config.frontend.cpu_id, 0, 0,
                 device->config.frontend.interrupt);
             break;
         default:
@@ -670,13 +669,13 @@ bool remio_mmio_emul_handler(struct emul_access* acc)
     struct remio_request_event* event = remio_create_event();
 
     /** Insert the I/O request into the Remote I/O request array */
-    remio_insert_request(event->cpu_id, event->vcpu_id, &request);
+    remio_insert_request(device, event->id, &request);
 
     /** Push the I/O request event into the Remote I/O device list */
     remio_push_request_event(device, event);
 
     /** Send a CPU message to the backend VM to then inject an interrupt */
-    remio_cpu_send_msg(REMIO_CPU_MSG_NOTIFY, device->config.backend.cpu_id, 0, 0, 0,
+    remio_cpu_send_msg(REMIO_CPU_MSG_NOTIFY, device->config.backend.cpu_id, 0, 0,
         device->config.backend.interrupt);
 
     /** Pause the current vCPU to wait for the MMIO emulation to be completed */
@@ -691,7 +690,7 @@ static void remio_cpu_handler(uint32_t event, uint64_t data)
     switch (event) {
         case REMIO_CPU_MSG_WRITE:
         case REMIO_CPU_MSG_READ:
-            if (!remio_cpu_post_work(event, ipc_data.cpu_id, ipc_data.vcpu_id)) {
+            if (!remio_cpu_post_work(event, ipc_data.remio_id, ipc_data.request_id)) {
                 ERROR("Failed to perform the post work after the completion of the I/O request");
             }
             break;
