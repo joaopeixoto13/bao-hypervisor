@@ -686,16 +686,16 @@ bool remio_mmio_emul_handler(struct emul_access* acc)
 
 static void remio_cpu_handler(uint32_t event, uint64_t data)
 {
-    union remio_cpu_msg_data ipc_data = { .raw = data };
+    union remio_cpu_msg_data msg = { .raw = data };
     switch (event) {
         case REMIO_CPU_MSG_WRITE:
         case REMIO_CPU_MSG_READ:
-            if (!remio_cpu_post_work(event, ipc_data.remio_id, ipc_data.request_id)) {
+            if (!remio_cpu_post_work(event, msg.remio_id, msg.request_id)) {
                 ERROR("Failed to perform the post work after the completion of the I/O request");
             }
             break;
         case REMIO_CPU_MSG_NOTIFY:
-            vcpu_inject_irq(cpu()->vcpu, ipc_data.interrupt);
+            vcpu_inject_irq(cpu()->vcpu, msg.interrupt);
             break;
         default:
             WARNING("Unknown Remote I/O CPU message event");
