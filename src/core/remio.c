@@ -506,24 +506,25 @@ void remio_assign_vm_cpus(struct vm* vm)
 static long int remio_handle_ask(unsigned long addr, unsigned long value,
     struct remio_device* device)
 {
-    long int ret = -HC_E_FAILURE;
+    long int ret = -HC_E_SUCCESS;
+    long unsigned int pending_requests = 0;
 
     /** By convention, the addr and value fields must be zero */
     if (addr != 0 || value != 0) {
-        return ret;
+        return HC_E_FAILURE;
     }
 
     struct remio_request_event* event = remio_pop_request_event(device);
     if (event == NULL) {
-        return ret;
+        return HC_E_FAILURE;
     }
 
     if (remio_get_request_state(device, event->id) != REMIO_STATE_PENDING) {
-        return ret;
+        return HC_E_FAILURE;
     }
 
     /** Calculate the remaining number of pending I/O requests */
-    ret = (long int)remio_get_request_event_count(device);
+    pending_requests = (long unsigned int)remio_get_request_event_count(device);
 
     remio_set_request_state(device, event->id, REMIO_STATE_PROCESSING);
 
@@ -535,6 +536,7 @@ static long int remio_handle_ask(unsigned long addr, unsigned long value,
     vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(2), request->value);
     vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(3), request->access_width);
     vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(4), event->id);
+    vcpu_writereg(cpu()->vcpu, HYPCALL_OUT_ARG_REG(5), pending_requests);
 
     return ret;
 }
