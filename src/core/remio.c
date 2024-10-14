@@ -307,8 +307,9 @@ static struct remio_device* remio_find_vm_dev_by_id(struct vm* vm, unsigned long
     struct remio_device* device = NULL;
 
     /** Find the Remote I/O device VM configuration based on the Remote I/O device ID */
-    for (size_t i = 0; i < vm->remio_dev_num; i++) {
-        dev = &vm->remio_devs[i];
+    struct vm_config* vm_config = &config.vmlist[vm->id];
+    for (size_t i = 0; i < vm_config->platform.remio_dev_num; i++) {
+        dev = &vm_config->platform.remio_devs[i];
         if (dev->id == id) {
             break;
         }
@@ -346,8 +347,9 @@ static struct remio_device* remio_find_vm_dev_by_addr(struct vm* vm, unsigned lo
 {
     struct remio_dev* dev = NULL;
 
-    for (size_t i = 0; i < vm->remio_dev_num; i++) {
-        dev = &vm->remio_devs[i];
+    struct vm_config* vm_config = &config.vmlist[vm->id];
+    for (size_t i = 0; i < vm_config->platform.remio_dev_num; i++) {
+        dev = &vm_config->platform.remio_devs[i];
         if (in_range(addr, dev->va, dev->size)) {
             break;
         }
@@ -606,14 +608,14 @@ long int remio_hypercall(unsigned long arg0, unsigned long arg1, unsigned long a
     struct vm* vm = cpu()->vcpu->vm;
 
     /** Check if the virtual Remote I/O device ID is within the valid range */
-    if (virt_remio_dev_id >= vm->remio_dev_num) {
+    if (virt_remio_dev_id >= config.vmlist[vm->id].platform.remio_dev_num) {
         ERROR("Remote I/O ID (%d) exceeds the valid range for backend VM (%d)", virt_remio_dev_id,
             vm->id);
         return -HC_E_FAILURE;
     }
 
     /** Get the Remote I/O device ID based on the virtual Remote I/O device ID */
-    unsigned long remio_dev_id = vm->remio_devs[virt_remio_dev_id].id;
+    unsigned long remio_dev_id = config.vmlist[vm->id].platform.remio_devs[virt_remio_dev_id].id;
 
     /** Find the Remote I/O device associated with the current backend VM */
     device = remio_find_vm_dev_by_id(vm, remio_dev_id);

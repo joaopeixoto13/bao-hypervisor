@@ -88,9 +88,6 @@ struct vm {
 
     size_t ipc_num;
     struct ipc* ipcs;
-
-    size_t remio_dev_num;
-    struct remio_dev* remio_devs;
 };
 
 struct vcpu {

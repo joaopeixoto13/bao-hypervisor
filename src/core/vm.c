@@ -272,9 +272,6 @@ static void vm_init_remio(struct vm* vm, const struct vm_config* vm_config)
         return;
     }
 
-    vm->remio_dev_num = vm_config->platform.remio_dev_num;
-    vm->remio_devs = vm_config->platform.remio_devs;
-
     for (size_t i = 0; i < vm_config->platform.remio_dev_num; i++) {
         struct remio_dev* remio_dev = &vm_config->platform.remio_devs[i];
         vm_init_remio_dev(vm, remio_dev);
