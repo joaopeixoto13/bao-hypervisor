@@ -30,6 +30,7 @@
 #define SBI_HART_START_FID              (0)
 #define SBI_HART_STOP_FID               (1)
 #define SBI_HART_STATUS_FID             (2)
+#define SBI_HART_SUSPEND_FID            (3)
 
 #define SBI_EXTID_RFNC                  (0x52464E43)
 #define SBI_REMOTE_FENCE_I_FID          (0)
@@ -168,6 +169,12 @@ struct sbiret sbi_hart_stop()
 struct sbiret sbi_hart_status(unsigned long hartid)
 {
     return sbi_ecall(SBI_EXTID_HSM, SBI_HART_STATUS_FID, hartid, 0, 0, 0, 0, 0);
+}
+
+struct sbiret sbi_hart_suspend(uint32_t suspend_type, unsigned long resume_addr, unsigned long priv)
+{
+    return sbi_ecall(SBI_EXTID_HSM, SBI_HART_SUSPEND_FID, (unsigned long)suspend_type, resume_addr,
+        priv, 0, 0, 0);
 }
 
 static unsigned long ext_table[] = { SBI_EXTID_BASE, SBI_EXTID_TIME, SBI_EXTID_IPI, SBI_EXTID_RFNC,
@@ -382,6 +389,35 @@ static struct sbiret sbi_hsm_status_handler(void)
     return ret;
 }
 
+static struct sbiret sbi_hsm_suspend_handler(void)
+{
+    struct sbiret ret;
+    uint32_t suspend_type = (uint32_t)vcpu_readreg(cpu()->vcpu, REG_A0);
+    // unsigned long resume_addr = vcpu_readreg(cpu()->vcpu, REG_A1);
+    // unsigned long priv = vcpu_readreg(cpu()->vcpu, REG_A2);
+
+    spin_lock(&cpu()->vcpu->arch.sbi_ctx.lock);
+    if (cpu()->vcpu->arch.sbi_ctx.state != STARTED) {
+        ret.error = SBI_ERR_FAILURE;
+    } else {
+        if (suspend_type & SBI_HSM_SUSP_NON_RET_BIT) {
+            // spin_lock(&cpu()->vcpu->arch.sbi_ctx.lock);
+            // cpu()->vcpu->arch.sbi_ctx.start_addr = resume_addr;
+            // cpu()->vcpu->arch.sbi_ctx.priv = (unsigned int)priv;
+            // spin_unlock(&cpu()->vcpu->arch.sbi_ctx.lock);
+
+            /*
+             * For now we're not supporting non-retentive suspend since we
+             * will need to save and later restore various hart registers and CSRs.
+             */
+            ERROR("non-retentive suspend not supported");
+        }
+        ret = sbi_hart_suspend(suspend_type, 0, 0);
+    }
+
+    return ret;
+}
+
 static struct sbiret sbi_hsm_handler(unsigned long fid)
 {
     struct sbiret ret;
@@ -392,6 +428,9 @@ static struct sbiret sbi_hsm_handler(unsigned long fid)
             break;
         case SBI_HART_STATUS_FID:
             ret = sbi_hsm_status_handler();
+            break;
+        case SBI_HART_SUSPEND_FID:
+            ret = sbi_hsm_suspend_handler();
             break;
         default:
             ret.error = SBI_ERR_NOT_SUPPORTED;
