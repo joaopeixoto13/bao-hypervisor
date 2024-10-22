@@ -350,9 +350,7 @@ __attribute__((weak)) cpumap_t vm_translate_to_vcpu_mask(struct vm* vm, cpumap_t
 
 void vcpu_run(struct vcpu* vcpu)
 {
-    if (vcpu->active == false) {
-        cpu_idle();
-    } else {
-        vcpu_arch_run(vcpu);
+    if (vcpu_arch_is_on(vcpu) && vcpu->active == true) {
+        vcpu_arch_entry();
     }
 }
