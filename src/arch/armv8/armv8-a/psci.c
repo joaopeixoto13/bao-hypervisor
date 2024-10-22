@@ -58,7 +58,7 @@ static void psci_wake_from_powerdown(void)
 
 static void psci_wake_from_idle(void)
 {
-    cpu_idle_wakeup();
+    cpu_standby_wakeup();
 }
 
 void psci_wake_from_off(void);

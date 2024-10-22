@@ -27,7 +27,15 @@ void cpu_arch_profile_init(cpuid_t cpuid, paddr_t load_addr)
     }
 }
 
-void cpu_arch_profile_idle()
+void cpu_arch_profile_standby()
+{
+    int32_t err = psci_standby();
+    if (err) {
+        ERROR("PSCI cpu%d standby failed with error %ld", cpu()->id, err);
+    }
+}
+
+void cpu_arch_profile_powerdown()
 {
     int64_t err = psci_power_down(PSCI_WAKEUP_IDLE);
     if (err) {
