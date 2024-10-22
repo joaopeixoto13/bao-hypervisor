@@ -138,7 +138,8 @@ static void remio_cpu_handler(uint32_t event, uint64_t data);
 CPU_MSG_HANDLER(remio_cpu_handler, REMIO_CPUMSG_ID)
 
 /** Object pool to allocate Remote I/O devices */
-OBJPOOL_ALLOC(remio_device_pool, struct remio_device, CONFIG_REMIO_DEV_NUM);
+OBJPOOL_ALLOC(remio_device_pool, struct remio_device,
+    CONFIG_REMIO_DEV_NUM ? CONFIG_REMIO_DEV_NUM : 1);
 
 /** Object pool to allocate pending Remote I/O requests events */
 OBJPOOL_ALLOC(remio_request_event_pool, struct remio_request_event, REMIO_VCPU_NUM);
