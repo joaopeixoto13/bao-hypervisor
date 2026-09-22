@@ -80,6 +80,22 @@ platforms is presented below:
 - [x] RH850 U2A16
 
 
+Debug builds
+------------
+
+`make DEBUG=y ...` builds with symbols, `-Og` and frame pointers, keeps the ELF unstripped, and
+compiles in the diagnostics that release builds leave out: `ASSERT()` checks of the hypervisor's
+own invariants, a validation of the configuration at boot, and a backtrace after every `ERROR()`
+or failed assertion. `DEBUG=y OPTIMIZATIONS=2` keeps the diagnostics at the release optimisation
+level. To resolve the addresses of a backtrace, with `CROSS_COMPILE` set as for the build, run:
+
+    scripts/symbolize.sh bin/<platform>/<config>/bao.elf panic.log
+
+A stripped release ELF resolves to symbol+offset through the `bao.elf.txt` symbol dump that the
+build writes next to it.
+
+
+
 Community Resources
 -------------------
 
