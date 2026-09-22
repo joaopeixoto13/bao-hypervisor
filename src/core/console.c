@@ -15,15 +15,13 @@
 #include <util.h>
 
 static volatile bao_uart_t* uart;
-static bool console_ready = false;
+static volatile bool console_ready = false;
 static spinlock_t console_lock = SPINLOCK_INITVAL;
 
 void console_init(void)
 {
     if (cpu_is_master()) {
-        if ((platform.console.base & PAGE_OFFSET_MASK) != 0) {
-            WARNING("console base must be page aligned\n");
-        }
+        bool misaligned = (platform.console.base & PAGE_OFFSET_MASK) != 0;
 
         uart = (void*)mem_alloc_map_dev(&cpu()->as, SEC_HYP_GLOBAL, INVALID_VA,
             platform.console.base, NUM_PAGES(sizeof(*uart)));
@@ -34,6 +32,10 @@ void console_init(void)
         uart_enable(uart);
 
         console_ready = true;
+
+        if (misaligned) {
+            WARNING("console base must be page aligned\n");
+        }
     }
 
     cpu_sync_and_clear_msgs(&cpu_glb_sync);
