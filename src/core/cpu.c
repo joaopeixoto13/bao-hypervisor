@@ -20,6 +20,8 @@ struct cpuif cpu_interfaces[PLAT_CPU_NUM];
 
 void cpu_init(cpuid_t cpu_id)
 {
+    ASSERT(cpu_id < PLAT_CPU_NUM);
+
     cpu()->id = cpu_id;
     cpu()->handling_msgs = false;
     cpu()->interface = cpu_if(cpu()->id);
@@ -43,6 +45,8 @@ void cpu_init(cpuid_t cpu_id)
 
 void cpu_send_msg(cpuid_t trgtcpu, struct cpu_msg* msg)
 {
+    ASSERT(trgtcpu < PLAT_CPU_NUM);
+
     bool ok = circular_queue_push(&cpu_if(trgtcpu)->msgs, msg);
     if (ok) {
         fence_sync_write();
