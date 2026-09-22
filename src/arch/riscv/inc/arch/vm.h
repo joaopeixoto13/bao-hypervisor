@@ -127,6 +127,12 @@ struct arch_regs {
 
 } __attribute__((__packed__, aligned(sizeof(unsigned long))));
 
+/* Not for the host-side generators: they compile this header with the host's unsigned long. */
+#ifndef GENERATING_DEFS
+_Static_assert(sizeof(unsigned long) == REGLEN && sizeof(((struct arch_regs*)0)->x) == 31 * REGLEN,
+    "VM_EXIT stores x1-x31 as 31 REGLEN-byte slots");
+#endif
+
 void vcpu_arch_entry(void);
 
 static inline void vcpu_arch_inject_hw_irq(struct vcpu* vcpu, irqid_t id)

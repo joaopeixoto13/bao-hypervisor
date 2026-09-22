@@ -11,6 +11,9 @@
 #include <string.h>
 
 BITMAP_ALLOC(global_interrupt_bitmap, MAX_INTERRUPT_LINES);
+
+_Static_assert(MAX_GUEST_INTERRUPTS <= MAX_INTERRUPT_LINES,
+    "every guest interrupt id must index the global bitmap");
 spinlock_t irq_reserve_lock = SPINLOCK_INITVAL;
 
 irq_handler_t interrupt_handlers[MAX_INTERRUPT_HANDLERS];

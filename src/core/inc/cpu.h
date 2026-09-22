@@ -34,9 +34,15 @@ struct cpu_msg {
 #define IPI_MAX_EVENTS IPI_MAX_EVENTS_DEFAULT
 #endif
 
+_Static_assert((IPI_MAX_EVENTS) > 0 && (IPI_MAX_EVENTS) < INT_MAX,
+    "IPI_MAX_EVENTS must fit the int indexes of the message queue");
+
 struct cpuif {
     CQ_DEFINE(struct cpu_msg, msgs, IPI_MAX_EVENTS);
 } __attribute__((aligned(PAGE_SIZE)));
+
+_Static_assert(sizeof(struct cpuif) <= 0x1000,
+    "struct cpuif exceeds one 4 KiB page: lower IPI_MAX_EVENTS");
 
 struct vcpu;
 
@@ -56,6 +62,9 @@ struct cpu {
     uint8_t stack[STACK_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 } __attribute__((aligned(PAGE_SIZE)));
+
+_Static_assert((STACK_SIZE % 16) == 0 && (STACK_SIZE % PAGE_SIZE) == 0,
+    "the stack top must be 16-byte aligned and the stack page sized");
 
 void cpu_send_msg(cpuid_t cpu, struct cpu_msg* msg);
 

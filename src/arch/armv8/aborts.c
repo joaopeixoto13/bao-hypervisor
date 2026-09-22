@@ -175,6 +175,9 @@ abort_handler_t abort_handlers[64] = {
     [ESR_EC_HVC64] = hvc_handler,
 };
 
+_Static_assert(sizeof(abort_handlers) / sizeof(abort_handlers[0]) == (1UL << ESR_EC_LEN),
+    "abort_handlers must cover every exception class");
+
 void aborts_sync_handler(void)
 {
     unsigned long esr = sysreg_esr_el2_read();
