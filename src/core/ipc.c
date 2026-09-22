@@ -21,6 +21,9 @@ union ipc_msg_data {
     uint64_t raw;
 };
 
+_Static_assert(sizeof(union ipc_msg_data) == sizeof(uint64_t),
+    "IPC messages travel in cpu_msg.data");
+
 static struct ipc* ipc_find_by_shmemid(struct vm* vm, size_t shmem_id)
 {
     struct ipc* ipc_obj = NULL;

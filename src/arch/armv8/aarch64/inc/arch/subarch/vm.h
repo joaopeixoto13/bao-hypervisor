@@ -14,4 +14,8 @@ struct arch_regs {
     uint64_t spsr_el2;
 } __attribute__((aligned(16))); // makes size always aligned to 16 to respect stack alignment
 
-#endif                          /* VM_SUBARCH_H */
+_Static_assert(offsetof(struct arch_regs, elr_el2) == 31 * 8 &&
+        offsetof(struct arch_regs, spsr_el2) == 32 * 8 && (sizeof(struct arch_regs) % 16) == 0,
+    "VM_EXIT and VM_ENTRY keep elr and spsr in slots 31 and 32 of a 16-byte aligned frame");
+
+#endif /* VM_SUBARCH_H */

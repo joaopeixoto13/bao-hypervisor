@@ -43,6 +43,9 @@ union vgic_msg_data {
     uint64_t raw;
 };
 
+_Static_assert(sizeof(union vgic_msg_data) == sizeof(uint64_t),
+    "vgic messages travel in cpu_msg.data");
+
 void vgic_ipi_handler(uint32_t event, uint64_t data);
 CPU_MSG_HANDLER(vgic_ipi_handler, VGIC_IPI_ID)
 

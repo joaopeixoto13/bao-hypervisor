@@ -68,6 +68,9 @@ union remio_cpu_msg_data {
     uint64_t raw;               /**< Raw data */
 };
 
+_Static_assert(sizeof(union remio_cpu_msg_data) == sizeof(uint64_t),
+    "Remote I/O messages travel in cpu_msg.data");
+
 /**
  * @struct remio_request
  * @brief This structure contains the information of a Remote I/O request

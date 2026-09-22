@@ -12,6 +12,9 @@
 #include <objpool.h>
 #include <config.h>
 
+_Static_assert(VMPU_NUM_ENTRIES >= MPU_ARCH_MAX_NUM_ENTRIES,
+    "the vMPU must be able to shadow every hardware entry");
+
 #define MEM_BROADCAST      (true)
 #define MEM_DONT_BROADCAST (false)
 
